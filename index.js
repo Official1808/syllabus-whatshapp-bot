@@ -4,17 +4,26 @@ const express = require('express');
 
 const app = express();
 
+const PORT = process.env.PORT || 8080;
+
 app.get('/', (req, res) => {
     res.send('WhatsApp Syllabus Bot Running');
 });
 
-app.listen(8080);
+app.listen(PORT, () => {
+    console.log('Server running on port ' + PORT);
+});
 
 const client = new Client({
-    authStrategy: new LocalAuth()
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
 });
 
 client.on('qr', qr => {
+    console.log('QR RECEIVED');
     qrcode.generate(qr, { small: true });
 });
 
@@ -22,11 +31,38 @@ client.on('ready', () => {
     console.log('Bot Ready');
 });
 
+client.on('authenticated', () => {
+    console.log('Authenticated');
+});
+
+client.on('auth_failure', msg => {
+    console.log('Auth failure', msg);
+});
+
+client.on('disconnected', reason => {
+    console.log('Disconnected', reason);
+});
+
 client.on('message', async msg => {
+
     if (msg.body.toLowerCase() === 'syllabus') {
-        const pdf = MessageMedia.fromFilePath('./syllabus.pdf');
-        client.sendMessage(msg.from, pdf);
+
+        try {
+
+            const pdf = MessageMedia.fromFilePath('./syllabus.pdf');
+
+            await client.sendMessage(msg.from, pdf);
+
+            console.log('Syllabus sent to ' + msg.from);
+
+        } catch (error) {
+
+            console.log('Error sending PDF:', error);
+
+        }
+
     }
+
 });
 
 client.initialize();
